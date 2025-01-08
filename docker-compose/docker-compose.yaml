@@ -1,0 +1,197 @@
+# Install:
+# 0. Setup External Postgresql server
+# 1. Edit config: docker-compose.env
+# 2. Set .env:
+#     ln -sf docker-compose.env .env
+#
+# 3. Init instance:
+#     # docker-compose run --rm init
+#     docker-compose run --rm init-extdb
+#
+# 4. Run Eva:
+#     docker-compose up -d
+#
+# Upgrade Online:
+#     # edit image tag in docker-compose.env
+#     docker-compose run --rm upgrade
+#     docker-compose up -d
+#
+# Upgrade(InternalDB):
+#     # edit image tag in docker-compose.env
+#     docker-compose stop
+#     docker-compose run --rm upgrade
+#     docker-compose up -d
+#
+version: "3"
+
+services:
+    app:
+        image: ${DOCKER_IMAGE}
+        shm_size: 8g
+        restart: unless-stopped
+        stop_grace_period: 1m
+        ports:
+            # При использовании не стандартного порта для доступа из вне, Нужно указать его в EVA_CONFIG__EXTERNAL_PORT_HTTPS
+            - ${HTTPS_PORT}:1443/tcp
+        volumes:
+            - /mnt/tmp
+            - mnt-shared:/mnt/shared
+        environment:
+            - TZ=${CONF_TZ:-Europe/Moscow}
+        networks:
+            - eva_network
+
+    upgrade:
+        image: ${DOCKER_IMAGE}
+        restart: 'no'
+        scale: 0
+        volumes:
+            - /mnt/tmp
+            - mnt-shared:/mnt/shared
+        working_dir: /opt/eva-app
+        command:
+            - /opt/bin/eva_upgrade.sh
+        environment:
+            - TZ=${CONF_TZ:-Europe/Moscow}
+        networks:
+            - eva_network
+
+    init:
+        image: ${DOCKER_IMAGE}
+        restart: 'no'
+        scale: 0
+        volumes:
+            - /mnt/tmp
+            - mnt-shared:/mnt/shared
+        working_dir: /opt/eva-app
+        command:
+            - bash
+            - -c
+            - |
+                exit 1  # Disabled!
+                set -uex
+                /opt/bin/eva_init.sh
+                if [[ "${SELECTED_PRODUCT:-}" ]]; then
+                    python3 manage.py shell 'models.CmfLicense.landing_page2license(code="${SELECTED_PRODUCT:-}")'
+                fi
+                /opt/bin/register.sh
+                port_spec="$${EVA_CONFIG__EXTERNAL_PORT_HTTPS:+:$EVA_CONFIG__EXTERNAL_PORT_HTTPS}"
+                set +x
+                echo
+                echo
+                echo "Установка завершена!"
+                echo
+                echo "Запуск docker-compose:"
+                echo "    docker-compose up -d"
+                echo
+                echo "Реквизиты для доступа:"
+                echo
+                echo "======================="
+                echo "Доступ в EvaTeam: https://${CONF_DOMAIN}$$port_spec/"
+                echo "Сервер авторизации: https://${CONF_DOMAIN}$$port_spec/auth"
+                echo
+                echo "Логин: ${CONF_ADMIN_EMAIL}"
+                echo "Пароль: servicemode"
+                echo "======================="
+                echo
+        environment:
+            - TZ=${CONF_TZ:-Europe/Moscow}
+            - SELECTED_PRODUCT
+            # Pass to APP Config
+            - EVA_CONFIG__EXTERNAL_PORT_HTTPS
+            - EVA_CONFIG__DOMAIN=${CONF_DOMAIN:?You must set domain}
+            - EVA_CONFIG__WZ_FULL_HOSTNAME=${CONF_DOMAIN}
+            - EVA_CONFIG__ADMIN_EMAIL=${CONF_ADMIN_EMAIL:?You must set email}
+            - EVA_CONFIG__MEMORY_LIMIT_GB=${EVA_CONFIG__MEMORY_LIMIT_GB:-8}
+            # 1 - use certbot, 0 - do not
+            - EVA_CONFIG__NGINX_USE_CERTBOT=${CONF_CERTBOT:-0}
+            - EVA_CONFIG__WEBSERVER_TYPE=nginx
+        networks:
+            - eva_network
+
+    init-extdb:
+        image: ${DOCKER_IMAGE}
+        restart: 'no'
+        scale: 0
+        volumes:
+            - /mnt/tmp
+            - mnt-shared:/mnt/shared
+            - /dev/null:/mnt/configs/CONFIG
+        working_dir: /opt/eva-app
+        command:
+            - bash
+            - -c
+            - |
+                set -uex
+                source /opt/bin/nss_wrapper.sh
+                /etc/init.d/redis-server start
+                /opt/bin/eva_init.sh k8s-init
+                if [[ "${SELECTED_PRODUCT:-}" ]]; then
+                    python3 manage.py shell 'models.CmfLicense.landing_page2license(code="${SELECTED_PRODUCT:-}")'
+                fi
+                port_spec="$${EVA_CONFIG__EXTERNAL_PORT_HTTPS:+:$EVA_CONFIG__EXTERNAL_PORT_HTTPS}"
+                set +x
+                echo
+                echo
+                echo "Установка завершена!"
+                echo
+                echo "Запуск docker-compose:"
+                echo "    docker-compose up -d"
+                echo
+                echo "Реквизиты для доступа:"
+                echo
+                echo "======================="
+                echo "Доступ в EvaTeam: https://${CONF_DOMAIN}$$port_spec/"
+                echo "Сервер авторизации: https://${CONF_DOMAIN}$$port_spec/auth"
+                echo
+                echo "Логин: ${CONF_ADMIN_EMAIL}"
+                echo "Пароль: servicemode"
+                echo "======================="
+                echo
+        environment:
+            - EVA_CONFIG__POSTGRESQL_ENABLED=FALSE
+            - EVA_CONFIG__DB_URL
+            - EVA_CONFIG__DB_PRE_PING
+            - TZ=${CONF_TZ:-Europe/Moscow}
+            - SELECTED_PRODUCT
+            # Pass to APP Config
+            - EVA_CONFIG__EXTERNAL_PORT_HTTPS
+            - EVA_CONFIG__DOMAIN=${CONF_DOMAIN:?You must set domain}
+            - EVA_CONFIG__WZ_FULL_HOSTNAME=${CONF_DOMAIN}
+            - EVA_CONFIG__ADMIN_EMAIL=${CONF_ADMIN_EMAIL:?You must set email}
+            - EVA_CONFIG__MEMORY_LIMIT_GB=${EVA_CONFIG__MEMORY_LIMIT_GB:-8}
+            # 1 - use certbot, 0 - do not
+            - EVA_CONFIG__NGINX_USE_CERTBOT=${CONF_CERTBOT:-0}
+            - EVA_CONFIG__EMAIL_HOST_ADDR
+            - EVA_CONFIG__EMAIL_USE_SSL
+            - EVA_CONFIG__EMAIL_USE_TLS
+            - EVA_CONFIG__EMAIL_PORT
+            - EVA_CONFIG__EMAIL_USER
+            - EVA_CONFIG__EMAIL_LOGIN
+            - EVA_CONFIG__EMAIL_PASSWORD
+            - EVA_CONFIG__WEBSERVER_TYPE=nginx
+        networks:
+            - eva_network
+
+    init-bash:
+        image: ${DOCKER_IMAGE}
+        restart: 'no'
+        scale: 0
+        volumes:
+            - /mnt/tmp
+            - mnt-shared:/mnt/shared
+        working_dir: /opt/eva-app
+        command:
+            - bash
+        environment:
+            - TZ=${CONF_TZ:-Europe/Moscow}
+        networks:
+            - eva_network
+
+volumes:
+    mnt-shared: {}
+
+networks:
+    eva_network:
+        name: eva_network
+        external: true

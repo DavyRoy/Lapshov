@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: eva-backup-cron
+  namespace: eva
+spec:
+  schedule: "15 * * * *"
+  jobTemplate:
+    metadata:
+      name: eva-backup-cron
+      namespace: eva
+    spec:
+      template:
+        spec:
+          nodeName: node_with_db
+          containers:
+          - name: eva-backup-cron
+            # we need psql and rsync
+            image: docker-registry.evateam.ru/evateam:devel_psb_astra-v00.00.00.0009-devel_psb_astra-temporary
+            # imagePullPolicy: IfNotPresent
+            args:
+            - /bin/bash
+            - -xc
+            - |
+              set -ue
+              rsync --stats --delete -a --exclude="/hosts/*" /mnt/shared/ /mnt/backup/eva-shared
+              psql -h postgres -d evadb -U eva --no-password -e \
+                -c "select pg_backup_start('backup')" \
+                -c "\\! rsync --stats --delete -a /mnt/postgres/ /mnt/backup/postgres-evadb" \
+                -c "select pg_backup_stop()"
+
+            env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+
+            volumeMounts:
+              - mountPath: /mnt/shared
+                name: eva-shared
+                readOnly: true
+              - mountPath: /mnt/postgres
+                name: postgres
+                readOnly: true
+              - mountPath: /mnt/backup
+                name: eva-backup
+
+          volumes:
+          - name: eva-shared
+            persistentVolumeClaim:
+              claimName: eva-shared-pvc
+          - name: postgres
+            persistentVolumeClaim:
+              claimName: postgres-pvc
+          - name: eva-backup
+            persistentVolumeClaim:
+              claimName: eva-backup-pvc
+
+          restartPolicy: Never
+          # activeDeadlineSeconds: 300
+      backoffLimit: 1

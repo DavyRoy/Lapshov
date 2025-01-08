@@ -1,0 +1,37 @@
+Конфигурация:
+    *-target.yaml
+        Описание цели, и параметров тестовых данных.
+    *-load-profile.yaml
+        Профиль нагрузки
+    *-load.yaml
+        Конфигурация yandex-tank
+
+Генерируемая конфигурация:
+    *-load-data.yaml
+        Создаёт db_prepare.py на основе target.yaml. Содержит идентификаторы и структуру тестовых данных.
+    *-tokens.yaml
+        Создаёт db_prepare.py на основе target.yaml. Содержит токены доступа тестовых пользователей.
+    *-ammo.tsv
+        Создаёт ammo_generate.py на основе load-profile.yaml
+
+Скрипты:
+    api_trace_analize.py
+        Анализ профиля нагрузки на основе API_TRACE из логов Eva
+    db_prepare.py
+        Создание тестовых данных, и выгрузка их данных для тестов.
+    ammo_generate.py
+        Создание файла патронов для yandex-tank на основе профиля нагрузки
+    eva_bfg_base.py
+        Базовый класс Eva пушки для генерации запросов.
+    eva_bfg.py
+        Пушка Eva, наследует EvaBfgBase и описывает конкретные тесты - запросы.
+
+
+Проведение теста:
+    * Описываем параметры конфигурации
+    * Создаём тестовые данные
+        python3 db_prepare.py eva-target.yaml
+    * Создаём патроны
+        python3 ammo_generate.py eva-ro-simple-load-profile.yaml
+    * Запускаем тест
+        yandex-tank load.yaml --option=bfg.ammofile=eva-crud1-ammo.tsv

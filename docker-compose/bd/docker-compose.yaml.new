@@ -1,0 +1,54 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: eva_postgres
+    environment:
+      POSTGRES_DB: evadb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: servicemode
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - type: bind
+        source: /opt/eva_admin/docker-compose/bd/init-scripts
+        target: /docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+      -c listen_addresses='*'
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c work_mem=16MB
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: eva_redis
+    command: redis-server --requirepass "PASS"
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_PASSWORD=PASS
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    sysctls:
+      - net.core.somaxconn=511
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: eva_postgres_data
+    external: true
+  redis_data:
+    name: eva_redis_data
+    external: true

@@ -1,0 +1,147 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eva
+  namespace: eva
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: eva
+  template:
+    metadata:
+      labels:
+        app: eva
+    spec:
+      initContainers:
+      - name: tmp-volume-init
+        image: docker-registry.evateam.ru/evateam:devel_psb_astra-v00.00.00.0009-devel_psb_astra-temporary
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            /usr/bin/rsync -a /mnt/tmp/ /mnt/tmp-init/
+            mkdir -p /mnt/shared/hosts
+            chmod -R 777 /mnt/shared
+        volumeMounts:
+          - mountPath: /mnt/tmp-init
+            name: eva-tmp
+          - mountPath: /mnt/shared
+            name: eva-shared
+
+        securityContext:
+          runAsUser: 0
+          readOnlyRootFilesystem: false
+
+      containers:
+        - name: eva-app
+          image: docker-registry.evateam.ru/evateam:devel_psb_astra-v00.00.00.0009-devel_psb_astra-temporary
+          # imagePullPolicy: "IfNotPresent"
+          ports:
+            - containerPort: 8080
+            - containerPort: 443
+            - containerPort: 80
+          # envFrom:
+          #  - configMapRef:
+          #      name: postgres-config
+          env:
+          - name: EVA_DEPLOY_TYPE
+            value: k8s
+          - name: PYTHONUNBUFFERED
+            value: "1"
+          - name: DEBUG
+            value: "1"
+
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+
+          volumeMounts:
+          - mountPath: /opt/CONFIG
+            name: eva-config
+            subPath: CONFIG
+          - mountPath: /mnt/shared
+            name: eva-shared
+          - mountPath: /mnt/tmp
+            name: eva-tmp
+          - mountPath: /mnt/tmp/run/uwsgi
+            name: uwsgi-run
+          - mountPath: /var/lib/nginx
+            name: nginx-lib
+          - mountPath: /var/log/nginx
+            name: nginx-logs
+          - mountPath: /var/run
+            name: nginx-run
+          - mountPath: /etc/nginx/conf.d/eva-app.conf
+            name: nginx-config
+            subPath: eva-app.conf
+          - mountPath: /opt/bin/configs/uwsgi/uwsgi-emperor.ini
+            name: uwsgi-config
+            subPath: uwsgi-emperor.ini
+          
+          # terminationGracePeriodSeconds: 120
+          # readinessGates: []
+
+          securityContext:
+            readOnlyRootFilesystem: false
+            runAsUser: 0
+
+          livenessProbe:
+            httpGet:
+              path: /health_check/alive
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 180
+            periodSeconds: 5
+            failureThreshold: 1
+            successThreshold: 1
+            timeoutSeconds: 2
+
+          readinessProbe:
+            httpGet:
+              path: /health_check/ready
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 1
+            successThreshold: 1
+            timeoutSeconds: 2
+
+          startupProbe:
+            httpGet:
+              path: /health_check/started
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 600
+            failureThreshold: 10
+            periodSeconds: 60
+            successThreshold: 1
+            timeoutSeconds: 120
+
+      volumes:
+      - name: eva-config
+        configMap:
+          name: eva-config
+      - name: eva-shared
+        persistentVolumeClaim:
+          claimName: eva-shared-pvc
+      - name: eva-tmp
+        emptyDir: {}
+      - name: uwsgi-run
+        emptyDir: {}
+      - name: nginx-lib
+        emptyDir: {}
+      - name: nginx-logs
+        emptyDir: {}
+      - name: nginx-run
+        emptyDir: {}
+      - name: nginx-config
+        configMap:
+          name: eva-nginx-config
+      - name: uwsgi-config
+        configMap:
+          name: eva-uwsgi-config

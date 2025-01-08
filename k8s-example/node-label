@@ -1,0 +1,3 @@
+set -ue
+
+kubectl label node "$1" node-role.kubernetes.io/worker=worker

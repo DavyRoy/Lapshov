@@ -1,0 +1,4 @@
+# Имя контейнера
+CONTAINER_NAME="evateam"
+# Доп.параметры для запуска контейнера docer run
+CONTAINER_PARAMS="--mount type=volume,source=evateam-tmp,destination=/mnt/tmp --mount type=volume,source=evateam-shared,target=/mnt/shared -e Europe/Moscow -h evateam.example.com"

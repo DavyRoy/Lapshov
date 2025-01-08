@@ -1,0 +1,44 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-eva-backup
+  namespace: eva
+provisioner: local
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: eva-backup-pv
+  namespace: eva
+  labels:
+    type: nfs
+    app: eva-backup
+spec:
+  storageClassName: nfs-eva-backup
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    path: /srv/k8s_nfs/eva-backup
+    server: my.nfs.server
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: eva-backup-pvc
+  namespace: eva
+  labels:
+    app: eva-backup
+spec:
+  storageClassName: nfs-eva-backup
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi

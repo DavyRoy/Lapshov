@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: eva-dump-cron
+  namespace: eva
+spec:
+  schedule: "15 1 * * *"
+  jobTemplate:
+    metadata:
+      name: eva-dump-cron
+      namespace: eva
+    spec:
+      template:
+        spec:
+          containers:
+          - name: eva-dump-cron
+            # we need psql and rsync
+            image: postgres:16.1
+            # imagePullPolicy: IfNotPresent
+            command:
+            - /bin/bash
+            - -xc
+            - |
+              set -ue
+              BACKUP_FILENAME="/mnt/backup/evadb_$(date +%Y%m%d_%H%M%S).pg_dump"
+              pg_dump -h postgres -U eva --no-password -Fc -f "$BACKUP_FILENAME.tmp" evadb
+              mv "$BACKUP_FILENAME.tmp" "$BACKUP_FILENAME"
+
+            env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+
+            volumeMounts:
+              - mountPath: /mnt/backup
+                name: eva-backup
+
+          volumes:
+          - name: eva-backup
+            persistentVolumeClaim:
+              claimName: eva-backup-pvc
+
+          restartPolicy: Never
+          # activeDeadlineSeconds: 300
+      backoffLimit: 1

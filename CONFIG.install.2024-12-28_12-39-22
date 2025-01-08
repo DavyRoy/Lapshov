@@ -1,0 +1,68 @@
+# Файл конфигурации Eva
+# Развёртывание нового экземпляра Eva командой:
+#   /opt/eva_admin/eva-docker.sh install 
+# Для применения изменений в уже развёрнутой системе(с перезагрузкой):
+#   /opt/eva_admin/eva-docker.sh apply 
+
+# NAME должен соответствовать имени файла
+NAME='evateam'
+
+# Параметры версии
+BRANCH='release'
+# Можно указать для установки определённой версии v02...
+VERSION=''
+# Можно указать для установки из определённого образа
+DOCKER_IMAGE=
+
+# Режим деплоя (TRUE - для работы без доступа в интернет)
+OFFLINE=''
+
+
+# Параметры первоначальной настройки, после установки изменить нельзя.
+# SELECTED_PRODUCT=|evaproject|evawiki
+SELECTED_PRODUCT=''
+CONF_ADMIN_EMAIL='printerprof@yandex.ru'
+
+# Параметры функциональные параметры контейнера
+CONF_DOMAIN='example.ru'
+# 1 - use certbot, 0 - do not
+CONF_CERTBOT='0'
+# timedatectl list-timezones
+CONF_TZ='Europe/Moscow'
+
+
+# Параметры контейнера
+CONTAINER_ENGINE='docker'
+
+# ROOTLESS=TRUE - если требуется rootless режим
+ROOTLESS=
+
+# CONTAINER_AS_SERVICE=TRUE - создать systemd-сервис для запуска podman контейнера.
+CONTAINER_AS_SERVICE=
+
+CONTAINER_NAME='evateam'
+CONTAINER_VOLUME='evateam-shared'
+
+# Маппинг портов [host_ip:]port
+# Номера портов не должны конфликтовать с другими сервисами или контейнерами на этоим хосте.
+# Для использования номеров портов <= 1024, требуются root приыелегии.
+# HTTPS порт необходим для работы с сервисом напрямую
+HTTPS_PORT='443'
+# HTTP порт может использоваться, если https терминируется на прокси-сервере, а прокси с сервисом работает по http
+HTTP_PORT='80'
+
+# Дополнительные пользовательские опции для docker run
+# Например для работы в non-root режиме(после инициализации тома автоматически uid сменить нельзя):
+#   CONTAINER_CUSTOM_PARAMS="-u 3000"
+CONTAINER_CUSTOM_PARAMS=
+
+# Параметр для скейлинга контейнера, в Гб ОЗУ
+#   Количество workers примерно CONF_MEMORY_LIMIT_GB // 2
+# минимум 8Гб
+CONF_MEMORY_LIMIT_GB='16'
+
+# Для проброса параметров в конфиг контейнера(/opt/CONFIG):
+#   EVA_CONFIG__REDIS_SERVER_ENABLED=FALSE
+# Параметры запишуться в /opt/CONFIG при запуске контейнера.
+# Удалить параметр из /opt/CONFIG можно только вручную.
+

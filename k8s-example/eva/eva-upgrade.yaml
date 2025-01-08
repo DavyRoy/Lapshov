@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: eva-upgrade-public-v02.19.00.0297-devel
+  namespace: eva
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: tmp-volume-init
+        image: docker-registry.evateam.ru/evateam:public-v02.19.00.0297-devel
+        command: ["/usr/bin/rsync", "-a", "/mnt/tmp/", "/mnt/tmp-init/"]
+
+        volumeMounts:
+          - mountPath: /mnt/tmp-init
+            name: eva-tmp
+
+        securityContext:
+          readOnlyRootFilesystem: true
+
+      containers:
+      - name: eva-init
+        image: docker-registry.evateam.ru/evateam:public-v02.19.00.0297-devel
+        # imagePullPolicy: IfNotPresent
+        # !!! Warning: Upgrade Without intermediate patch-versions
+        args:
+        - /opt/bin/eva_upgrade.sh
+        
+        env:
+        - name: EVA_DEPLOY_TYPE
+          value: k8s
+
+        volumeMounts:
+          - mountPath: /mnt/shared
+            name: eva-shared
+          - mountPath: /mnt/tmp
+            name: eva-tmp
+
+        # terminationGracePeriodSeconds: 120
+        # readinessGates: []
+
+        securityContext:
+          readOnlyRootFilesystem: true
+
+      volumes:
+      - name: eva-shared
+        persistentVolumeClaim:
+          claimName: eva-shared-pvc
+
+      - name: eva-tmp
+        emptyDir: {}
+      
+      restartPolicy: Never
+      # activeDeadlineSeconds: 300
+  backoffLimit: 1

@@ -1,0 +1,2 @@
+kubectl -n eva rollout restart deployment eva
+kubectl -n eva scale deployment eva --replicas=2

@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eva-config
+  namespace: eva
+  labels:
+    app: eva
+data:
+  CONFIG: |
+    # Домен EvaTeam
+    WZ_FULL_HOSTNAME="eva.example.ru"
+    DOMAIN="eva.example.ru"
+
+    # Порт HTTPS для подключения клиентов (опционально)
+    # EXTERNAL_PORT_HTTPS="8443"
+
+    # Отключаем HTTPS редирект для проксирования между ingress и eva-service
+    DISABLE_HTTPS_REDIRECT=TRUE
+
+    # Email администратора (пароль будет servicemode)
+    ADMIN_EMAIL="printerprof@yandex.ru"
+
+    # Отключаем Certbot, сертификаты управляются через ingress
+    NGINX_USE_CERTBOT="0"
+
+    # Параметры SMTP-сервера для отправки почты (опционально)
+    EMAIL_HOST_ADDR='smtp.yandex.ru'
+    EMAIL_USE_SSL="1"
+    EMAIL_USE_TLS="0"
+    EMAIL_PORT=465
+    EMAIL_USER='printerprof@yandex.ru'
+    EMAIL_LOGIN='printerprof@yandex.ru'
+    EMAIL_PASSWORD='290315Gs'
+
+    # Настройка запуска сервисов
+    POSTGRESQL_ENABLED='FALSE'
+    REDIS_SERVER_ENABLED='FALSE'
+    NGINX_ENABLED='TRUE'
+    SSHD_ENABLED='FALSE'
+
+    # Параметр сайзинга пода (минимум 8GB)
+    MEMORY_LIMIT_GB="8"
+
+    # Тип контейнера
+    EVA_DEPLOY_TYPE="k8s"
+
+    # Настройки подключения к базе данных
+    DB_PRE_PING=TRUE
+    DB_HOST='postgres'
+    DB_PORT='5432'
+    
+    # Настройки подключения к Redis
+    REDIS_HOST='redis'
+    REDIS_PORT='6379'
+    REDIS_PASSWORD='PASS'
+
+  # Корпоративный корневой сертификат (опционально)
+  # corp_rootCA.pem: |
+  #   -----BEGIN CERTIFICATE-----
+  #   your_certificate_here
+  #   -----END CERTIFICATE-----

@@ -1,0 +1,17 @@
+/*-target.yaml
+/*-load-profile.yaml
+/*-load.yaml
+
+# artifacts
+/*-ammo.tsv
+/*-load-data.yaml
+
+# system
+/__pycache__
+
+# private
+/logs
+/root
+/*.log
+/*token*
+/api_trace__*
